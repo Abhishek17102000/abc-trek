@@ -1,6 +1,6 @@
 // PWA icons (pure Node): mountain peaks + sun on a deep teal tile.
 import { deflateSync } from 'node:zlib'
-import { writeFileSync, mkdirSync } from 'node:fs'
+import { writeFileSync, mkdirSync, existsSync, rmSync } from 'node:fs'
 function crc32(buf) { let c, crc = ~0; for (let n = 0; n < buf.length; n++) { c = (crc ^ buf[n]) & 0xff; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; crc = (crc >>> 8) ^ c } return ~crc >>> 0 }
 function chunk(type, data) { const len = Buffer.alloc(4); len.writeUInt32BE(data.length); const td = Buffer.concat([Buffer.from(type), data]); const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(td)); return Buffer.concat([len, td, crc]) }
 function png(size, draw) {
@@ -26,3 +26,17 @@ writeFileSync('public/icons/icon-512.png', png(512, glyph(1, true)))
 writeFileSync('public/icons/maskable-512.png', png(512, glyph(0.72, false)))
 writeFileSync('public/icons/apple-touch-icon.png', png(180, glyph(0.85, false)))
 console.log('icons written')
+
+
+// Android launcher icons (legacy PNGs; the template adaptive-icon XML is removed so these are used)
+const RES = 'android/app/src/main/res'
+if (existsSync(RES)) {
+  const sizes = { mdpi: 48, hdpi: 72, xhdpi: 96, xxhdpi: 144, xxxhdpi: 192 }
+  for (const [d, s] of Object.entries(sizes)) {
+    for (const name of ['ic_launcher.png', 'ic_launcher_round.png', 'ic_launcher_foreground.png']) {
+      writeFileSync(RES + '/mipmap-' + d + '/' + name, png(s, glyph(name.includes('foreground') ? 0.72 : 1, true)))
+    }
+  }
+  rmSync(RES + '/mipmap-anydpi-v26', { recursive: true, force: true })
+  console.log('android icons written')
+}

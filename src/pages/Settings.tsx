@@ -7,6 +7,7 @@ import { bufferMessage } from '../engine/plan'
 import { addDays, diffDays, isDate, todayLocal } from '../engine/dates'
 import { VARIANTS, type VariantId } from '../data/trek'
 import { useInstall } from '../install'
+import { isNative, nativeRequestPermission, nativeTest } from '../native'
 
 export function TripForm() {
   const s = useAll()
@@ -81,6 +82,41 @@ export default function Settings() {
       <SectionTitle>Trip</SectionTitle>
       <Card>
         <TripForm />
+      </Card>
+
+      <SectionTitle>Daily reminders</SectionTitle>
+      <Card className="space-y-3">
+        {isNative() ? (
+          <>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">Morning &amp; evening check-ins</p>
+                <p className="text-xs text-muted">Fire even when the app is closed, with no signal.</p>
+              </div>
+              <Toggle
+                label="Daily reminders"
+                checked={s.reminders.enabled}
+                onChange={async (v) => {
+                  if (v && !(await nativeRequestPermission())) return toast('Allow notifications for ABC Trek in your phone settings first')
+                  setState((st) => ({ reminders: { ...st.reminders, enabled: v } }))
+                }}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Morning">
+                <input aria-label="Morning reminder time" type="time" className={inputCls} value={s.reminders.morning} onChange={(e) => e.target.value && setState((st) => ({ reminders: { ...st.reminders, morning: e.target.value } }))} />
+              </Field>
+              <Field label="Evening">
+                <input aria-label="Evening reminder time" type="time" className={inputCls} value={s.reminders.evening} onChange={(e) => e.target.value && setState((st) => ({ reminders: { ...st.reminders, evening: e.target.value } }))} />
+              </Field>
+            </div>
+            <Btn variant="soft" block onClick={async () => toast((await nativeTest()) ? 'Test notification sent' : 'Turn on reminders first')}>
+              Send a test notification
+            </Btn>
+          </>
+        ) : (
+          <p className="text-sm text-muted">Reminders that work with the app closed need the Android app (the APK on the project's Releases page). In the browser version you are prompted when you open the app.</p>
+        )}
       </Card>
 
       <SectionTitle>Preview a day</SectionTitle>

@@ -12,6 +12,8 @@ import { describe, wxAdvice } from '../engine/weather'
 import { addRestHere, toggleDone } from '../actions'
 import { CheckInSheet } from './CheckIn'
 import { toast } from '../ui'
+import { isNative, nativeRequestPermission } from '../native'
+import { setState } from '../store'
 
 function restText(trip: Trip, progress: Progress, plan: Analysis, today: string): string {
   const next = withRestHere(trip, plan, today)
@@ -39,6 +41,28 @@ export default function Today() {
       {s.simDate && (
         <Banner tone="accent" icon="clock" title={`Previewing ${fmt(s.simDate)}`} action={<Link to="/settings" className="rounded-xl bg-accent px-3 py-2 text-sm font-semibold text-accent-fg">Back to real date</Link>}>
           You are exploring the trip. Nothing here is real until you switch back.
+        </Banner>
+      )}
+      {isNative() && !s.reminders.enabled && phase !== 'after' && (
+        <Banner
+          tone="accent"
+          icon="clock"
+          title="Turn on daily reminders"
+          action={
+            <Btn
+              size="sm"
+              onClick={async () => {
+                if (await nativeRequestPermission()) {
+                  setState((st) => ({ reminders: { ...st.reminders, enabled: true } }))
+                  toast('Reminders on')
+                } else toast('Allow notifications in your phone settings')
+              }}
+            >
+              Turn on
+            </Btn>
+          }
+        >
+          A morning health check and an evening log, even with no signal.
         </Banner>
       )}
       {phase === 'before' && <Before plan={plan} today={today} />}

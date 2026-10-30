@@ -11,6 +11,7 @@ import Pack from './pages/Pack'
 import Settings from './pages/Settings'
 import { Facts, More, Notes, Safety, Stays } from './pages/Info'
 import { useForecastLoader } from './hooks'
+import { useNativeReminders } from './native'
 
 const TABS: { to: string; label: string; icon: IconName }[] = [
   { to: '/', label: 'Today', icon: 'sun' },
@@ -73,6 +74,7 @@ export default function App() {
   const s = useAll()
   const loc = useLocation()
   useForecastLoader()
+  useNativeReminders()
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [loc.pathname])

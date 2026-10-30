@@ -1,0 +1,57 @@
+name: Build Android APK
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: android
+  cancel-in-progress: true
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Accept Android SDK licenses (SDK is preinstalled on the runner)
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: npx cap sync android
+      - name: Restore signing key
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KS_PW: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KS_B64" ] || [ -z "$KS_PW" ]; then echo "::error::Missing ANDROID_KEYSTORE_B64 / ANDROID_KEYSTORE_PASSWORD repository secrets"; exit 1; fi
+          echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/fittrack.p12"
+          echo "FITTRACK_KEYSTORE=$RUNNER_TEMP/fittrack.p12" >> "$GITHUB_ENV"
+          echo "FITTRACK_KEYSTORE_PASSWORD=$KS_PW" >> "$GITHUB_ENV"
+      - name: Build signed release APK
+        working-directory: android
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+      - name: Publish APK to the android-latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK=$(ls android/app/build/outputs/apk/release/*.apk | head -1)
+          cp "$APK" ABC-Trek.apk
+          gh release view android-latest >/dev/null 2>&1 || gh release create android-latest --title "ABC Trek Android (latest)" --notes "Download ABC-Trek.apk on your phone and open it to install."
+          gh release upload android-latest ABC-Trek.apk --clobber
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ABC-Trek-apk
+          path: ABC-Trek.apk

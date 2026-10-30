@@ -3,6 +3,7 @@ import { DEFAULT_TRIP, type Progress, type Trip } from './engine/plan'
 import type { Expense } from './engine/budget'
 import type { RedFlags, Symptoms } from './engine/ams'
 import type { Wx } from './engine/weather'
+import { DEFAULT_REMINDERS, type ReminderPrefs } from './engine/reminders'
 
 export interface MorningLog {
   at: number
@@ -56,6 +57,7 @@ export interface State {
   forecast: Record<string, { fetched: number; daily: Wx[] }>
   /** Pretend it is this date, to explore later days of the trip. */
   simDate: string | null
+  reminders: ReminderPrefs
 }
 
 export const EMPTY_EMERGENCY: EmergencyCard = {
@@ -77,6 +79,7 @@ export const DEFAULT_STATE: State = {
   verified: {},
   forecast: {},
   simDate: null,
+  reminders: DEFAULT_REMINDERS,
 }
 
 const KEY = 'abctrek.v1'
@@ -98,6 +101,7 @@ export function hydrate(raw: unknown): State {
     priceOverrides: r.priceOverrides ?? {},
     verified: r.verified ?? {},
     forecast: r.forecast ?? {},
+    reminders: { ...DEFAULT_REMINDERS, ...(r.reminders ?? {}) },
   }
 }
 

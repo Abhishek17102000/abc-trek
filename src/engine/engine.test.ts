@@ -4,6 +4,7 @@ import { buildPlan, bufferMessage, DEFAULT_TRIP, phaseOf, whatIf } from './plan'
 import { assess, NO_FLAGS } from './ams'
 import { estimate, fmtInr, summarize, toInr, toNpr, totalOf, type Expense } from './budget'
 import { ITEMS } from '../data/lists'
+import { notificationId, planReminders, DEFAULT_REMINDERS } from './reminders'
 import { PLACES, VARIANTS } from '../data/trek'
 
 describe('dates', () => {
@@ -175,5 +176,35 @@ describe('checklist data', () => {
     const grams = ITEMS.reduce((a, i) => a + (i.grams ?? 0), 0)
     expect(grams).toBeGreaterThan(5000)
     expect(grams).toBeLessThan(12000)
+  })
+})
+
+describe('native reminders plan', () => {
+  const plan = buildPlan(DEFAULT_TRIP)
+  const on = { ...DEFAULT_REMINDERS, enabled: true }
+  it('nothing when disabled', () => expect(planReminders(plan, {}, DEFAULT_REMINDERS, '2026-11-04')).toEqual([]))
+  it('two reminders per trek day at the chosen times', () => {
+    const r = planReminders(plan, {}, on, '2026-11-04')
+    expect(r.filter((x) => x.id.startsWith('am:')).map((x) => x.date)).toEqual(['2026-11-04', '2026-11-05', '2026-11-06', '2026-11-07', '2026-11-08', '2026-11-09'])
+    expect(r.find((x) => x.id === 'am:2026-11-04')?.minutes).toBe(7 * 60)
+    expect(r.find((x) => x.id === 'pm:2026-11-04')?.minutes).toBe(18 * 60 + 30)
+  })
+  it('answered check-ins are dropped', () => {
+    const r = planReminders(plan, { '2026-11-04': { morning: {}, evening: {} } }, on, '2026-11-04')
+    expect(r.some((x) => x.date === '2026-11-04')).toBe(false)
+    expect(r.some((x) => x.id === 'am:2026-11-05')).toBe(true)
+  })
+  it('before the trip: a daily countdown nudge, no health checks', () => {
+    const r = planReminders(plan, {}, on, '2026-10-30')
+    expect(r.filter((x) => x.id.startsWith('prep:')).map((x) => x.date)).toEqual(['2026-10-30', '2026-10-31', '2026-11-01'])
+    expect(r.find((x) => x.id === 'prep:2026-11-01')?.title).toContain('1 day to')
+    expect(r.some((x) => x.id.startsWith('am:'))).toBe(true) // the trek is inside the 14-day horizon
+  })
+  it('rest days also get check-ins; past days none; ids are stable positive ints', () => {
+    const p = buildPlan({ ...DEFAULT_TRIP, restDays: { deurali: 1 } })
+    expect(planReminders(p, {}, on, '2026-11-07').some((x) => x.id === 'am:2026-11-07')).toBe(true)
+    expect(planReminders(plan, {}, on, '2026-11-08').some((x) => x.date < '2026-11-08')).toBe(false)
+    expect(notificationId('am:2026-11-04')).toBe(notificationId('am:2026-11-04'))
+    expect(notificationId('am:2026-11-04')).toBeGreaterThan(0)
   })
 })
